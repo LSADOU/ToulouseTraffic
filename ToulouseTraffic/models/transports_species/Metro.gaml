@@ -8,16 +8,16 @@
 model Metro
 
 import "../MAIN.gaml"
-import "Transport.gaml"
+import "PublicTransport.gaml"
 
 //species that represent metro
-species Metro parent: Transport {
+species Metro parent: PublicTransport {
 	
 	reflex move when: status = "moving"{
-		if location = target {
+		if location = target.location {
 			//mise à jour du retard moyen du metro
-			mean_late_time <- (mean_late_time * target_seq_stop + (int(trip_stop_times[4,target_seq_stop]) - current_time)*(-1))/target_seq_stop;
-			if target_seq_stop = trip_stop_times.rows-1{
+			mean_late_time <- (mean_late_time * target_seq_stop + (target_arrival_time - current_time)*(-1))/target_seq_stop;
+			if last_target{
 				// le transport est arrivé à son terminus
 				write "Metro terminus";
 				do die;

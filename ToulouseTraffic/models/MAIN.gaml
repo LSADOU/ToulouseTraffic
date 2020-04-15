@@ -46,7 +46,7 @@ global skills: [SQLSKILL]{
 	graph road_network;
 	
 	//Step value
-	float step <- 1#mn;
+	float step <- 10;
 	int current_time update: (time/#mn) mod 1440;
 	//this int store an absolute date
 	int current_day update: floor(time/#mn /1440);

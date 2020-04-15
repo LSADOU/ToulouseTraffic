@@ -90,7 +90,6 @@ species TransportLine skills: [SQLSKILL]{
 					}
 				}
 			}
-			write "départ: "+last_starting+"/"+starting_times.rows;
 			last_starting <- (last_starting +1) mod starting_times.rows;
 			end_of_day <- last_starting = 0;
 		}

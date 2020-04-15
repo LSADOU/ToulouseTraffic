@@ -19,67 +19,78 @@ species TransportLine skills: [SQLSKILL]{
 	// 3 = bus / 0 = tram / 1 = metro
 	int transport_type <- 3;
 	
-	list<geometry> line_shapes <- [];
+	//store all the geometry corresponding to trips made by this line
+	map<string,geometry> line_shapes <- [];
+	
+	//store the correspondance between a trip_id the shape_id it has to follow
+	//This map is filled when getStartingTimes is called
+	map<string,string> trip_shapes <- [];
+	
 	rgb line_color <- #black;
 	
-	//[starting_time, trip_id, first hub of the trip]
+	//store the trips info
+	// key = trip_id matrix = [int arrival_time, int departure_time, Hub hub_to_collect]
+	map<string,matrix> trips;
+	
+	//[int starting_time, string trip_id, int hub_id]
 	matrix starting_times <- [];
 	int last_starting <- 0;
+	
+	bool end_of_day <- false;
 	
 	//reflex function that create transports when it arrives at the first station of the trip
 	reflex start_trip when: int(starting_times[0,last_starting]) < current_time and !end_of_day {
 		list tempTransportInfo;
 		Hub tempHub;
 		loop while: int(starting_times[0,last_starting]) < current_time and !end_of_day{
-			tempTransportInfo <- getHubInfo(starting_times[1,last_starting],0);
 			switch transport_type{
 				match 3{
 					create Bus{
 						id <- myself.starting_times[1,myself.last_starting];
+						stop_times <- myself.trips[self.id];
+						path_to_use <- as_edge_graph(myself.line_shapes[myself.trip_shapes[self.id]]);
+						color <- myself.line_color;
 						status <- "waiting";
 						day_of_departure <- current_day;
+						target <- Hub(stop_times[2,0]);
 						tp_line <- myself;
-						target <- Hub(tempTransportInfo[0]);
-						target_seq_stop <- 0;
-						target_arrival_time <- tempTransportInfo[1];
-						target_departure_time <- tempTransportInfo[2];
-						last_target <- tempTransportInfo[3];
-						speed<-50 #km/#h;
-						location <-target.location;
+						speed <- 50 #km/#h;
+						seq_stop <- 0;
+						location <- target.location;
 					}
 				}
 				match 0{
 					create Tram{
 						id <- myself.starting_times[1,myself.last_starting];
+						stop_times <- myself.trips[self.id];
+						path_to_use <- as_edge_graph(myself.line_shapes[myself.trip_shapes[self.id]]);
+						color <- myself.line_color;
 						status <- "waiting";
 						day_of_departure <- current_day;
+						target <- Hub(stop_times[2,0]);
 						tp_line <- myself;
-						target <- tempTransportInfo[0];
-						target_seq_stop <- 0;
-						target_arrival_time <- tempTransportInfo[1];
-						target_departure_time <- tempTransportInfo[2];
-						last_target <- tempTransportInfo[3];
-						speed<-18 #km/#h;
+						speed <- 18 #km/#h;
+						seq_stop <- 0;
 						location <- target.location;
 					}
 				}
 				match 1{
 					create Metro{
 						id <- myself.starting_times[1,myself.last_starting];
+						stop_times <- myself.trips[self.id];
+						path_to_use <- as_edge_graph(myself.line_shapes[myself.trip_shapes[self.id]]);
+						color <- myself.line_color;
 						status <- "waiting";
 						day_of_departure <- current_day;
+						target <- Hub(stop_times[2,0]);
 						tp_line <- myself;
-						target <- Hub(tempTransportInfo[0]);
-						target_seq_stop <- 0;
-						target_arrival_time <- tempTransportInfo[1];
-						target_departure_time <- tempTransportInfo[2];
-						last_target <- tempTransportInfo[3];
-						speed<-36 #km/#h;
+						speed <- 36 #km/#h;
+						seq_stop <- 0;
 						location <- target.location;
 					}
 				}
 			}
-			write "création transport sur la ligne " + long_name;
+			write "départ: "+last_starting+"/"+starting_times.rows;
 			last_starting <- (last_starting +1) mod starting_times.rows;
 			end_of_day <- last_starting = 0;
 		}
@@ -94,7 +105,7 @@ species TransportLine skills: [SQLSKILL]{
 	}
 	
 	string getConditionServices(list services_id){
-		string cond <- "AND trips.service_id IN (";
+		string cond <- "trips.service_id IN (";
 		loop id over: services_id{
 			cond <- cond + id +",";
 		}
@@ -105,15 +116,18 @@ species TransportLine skills: [SQLSKILL]{
 	
 	action getStartingTimes{
 		list result <- select(MySQL_params,
-			"SELECT stop_times.stop_id, stop_times.trip_id, stop_times.arrival_time
+			"SELECT stop_times.stop_id, stop_times.trip_id, stop_times.arrival_time, trips.shape_id
 			FROM stop_times
 				INNER JOIN trips ON stop_times.trip_id = trips.trip_id
     			INNER JOIN routes ON trips.route_id = routes.route_id
 			WHERE routes.route_id = "+id+"
 				AND stop_times.stop_sequence = 0
-				"+getConditionServices(services_id)+"
+				AND "+getConditionServices(services_id)+"
 			ORDER BY stop_times.arrival_time")[2];
 		loop line over: result{
+			//get the association between a trip_id and his shape_ip
+			trip_shapes[string(line[1])] <- string(line[3]);
+			//filling the starting_times matrix
 			if starting_times.rows=0 {
 				starting_times <-  matrix([string2time(line[2]),string(line[1]),string(line[0])]);
 			}else{
@@ -129,50 +143,55 @@ species TransportLine skills: [SQLSKILL]{
 				INNER JOIN shapes ON trips.shape_id = shapes.shape_id
     			INNER JOIN routes ON trips.route_id = routes.route_id
 			WHERE routes.route_id = "+id+"
-    			"+getConditionServices(services_id)+"
+    			AND "+getConditionServices(services_id)+"
 			ORDER BY shapes.shape_id, shapes.shape_pt_sequence")[2];
 		
-		int shape_id <-0;
+		string shape_id <-"-1";
 		list<point> shape_compo <- [];
 		loop line over:result{
 			if line[3] = 0 {
 				if empty(shape_compo){
-					shape_id <- line[0];
+					shape_id <- string(line[0]);
 					shape_compo <- shape_compo + [string2point(line[2],line[1])];
 				}else{
-					line_shapes <- line_shapes + [polyline(shape_compo)];
-					shape_id <- line[0];
-					shape_compo <- [];
+					line_shapes[shape_id] <- polyline(shape_compo);
+					shape_id <- string(line[0]);
+					shape_compo <- [string2point(line[2],line[1])];
 				}
 			}else{
 				shape_compo <- shape_compo + [string2point(line[2],line[1])];
 			}
 		}
-		line_shapes <- line_shapes + [polyline(shape_compo)];
+		line_shapes[shape_id] <- polyline(shape_compo);
 	}
 	
-	//return a list containing info about a specific hub
-	//this action has to be called by transport using this tp line
-	//returned list = [Hub target, int arrival_time, int departure_time, bool last_target]
-	list getHubInfo(string transport_id, int seq_stop){
+	action getTripsInfo{
 		list result <- select(MySQL_params,
-			"SELECT stop_times.stop_id, stop_times.arrival_time, stop_times.departure_time
+			"SELECT DISTINCT trips.trip_id, stop_times.stop_id, stop_times.arrival_time, stop_times.departure_time, stop_times.stop_sequence
 			FROM stop_times
-			WHERE stop_times.trip_id = "+transport_id+"
-				AND stop_times.stop_sequence = "+seq_stop)[2];
-		if length(result) = 0{
-			write "SELECT stop_times.stop_id, stop_times.arrival_time, stop_times.departure_time
-			FROM stop_times
-			WHERE stop_times.trip_id = "+transport_id+"
-				AND stop_times.stop_sequence = "+seq_stop;
+				INNER JOIN trips ON stop_times.trip_id = trips.trip_id
+			WHERE route_id = "+id+"
+				AND "+getConditionServices(services_id)+"
+			ORDER BY trips.trip_id, stop_times.stop_sequence")[2];
+		string trip_id <-"-1";
+		matrix stop_times <- [];
+		Hub tempHub;
+		loop line over:result{
+			tempHub <- Hub(hubs_map[string(line[1])]);
+			if string(line[0]) != trip_id {
+				if stop_times.rows = 0 {
+					trip_id <- string(line[0]);
+					stop_times <- matrix([string2time(line[2]), string2time(line[3]), tempHub]);
+				}else{
+					trips[trip_id] <- stop_times;
+					trip_id <- string(line[0]);
+					stop_times <- matrix([string2time(line[2]), string2time(line[3]), tempHub]);
+				}
+			}else{
+				stop_times <- stop_times append_vertically matrix([string2time(line[2]), string2time(line[3]), tempHub]);
+			}
 		}
-		result <- result[0];
-		Hub h <- Hub first_with (each.id contains string(result[0]));
-		int max_seq_stop <- select(MySQL_params,
-			"SELECT  MAX(stop_times.stop_sequence)
-			FROM stop_times
-			WHERE stop_times.trip_id = "+transport_id)[2][0][0];
-		return [h, string2time(result[1]), string2time(result[2]),max_seq_stop=seq_stop];
+		trips[trip_id] <- stop_times;
 	}
 	
 	aspect base { 

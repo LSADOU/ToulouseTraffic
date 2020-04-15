@@ -13,8 +13,8 @@ import "TransportLine.gaml"
 species Hub{
 	
 	string id <- "0";
-	string name <- nil;
-	
+	string name <- "default";
+	int transport_type <- 3;
 	//This list store all the transport line that pass trough this hub
 	list<TransportLine> lines <- nil;
 	

@@ -18,11 +18,11 @@ experiment traffic model: "../MAIN.gaml" type: gui {
 			species Road refresh: false;
 			species TransportLine aspect: base;
 			species Hub aspect: base;
-			species Bus aspect: base;
+			species Bus aspect: arrowAspect;
 			species Tram aspect: arrowAspect;
 			species Metro aspect: arrowAspect;
 		}
-		/*display charts refresh: every (10 #cycles){
+		display charts refresh: every (10 #cycles){
 			chart "Mean late time" type: series size: {1, 0.5} position: {0, 0} {
         		data "Mean metros late time" value: mean(Metro collect each.mean_late_time) style: line color: #red;
         		data "Mean bus late time" value: mean(Bus collect each.mean_late_time) style: line color: #blue;
@@ -31,6 +31,6 @@ experiment traffic model: "../MAIN.gaml" type: gui {
         		data "Number of working metros" value: nb_metro  style: line color: #red;
         		data "Number of working bus" value: nb_bus  style: line color: #blue;
         	} 
-		}*/
+		}
 	}
 }

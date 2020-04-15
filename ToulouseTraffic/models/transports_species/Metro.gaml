@@ -15,22 +15,21 @@ species Metro parent: PublicTransport {
 	
 	reflex move when: status = "moving"{
 		if location = target.location {
-			//mise à jour du retard moyen du metro
-			mean_late_time <- (mean_late_time * target_seq_stop + (target_arrival_time - current_time)*(-1))/target_seq_stop;
-			if last_target{
+			//mise à jour du retard moyen du bus
+			mean_late_time <- (mean_late_time * seq_stop + ((int(stop_times[0,seq_stop]) - current_time)*(-1)))/seq_stop;
+			if seq_stop = stop_times.rows-1{
 				// le transport est arrivé à son terminus
-				write "Metro terminus";
 				do die;
 			}else{
 				status <- "waiting";
 			}	
 		}else{
-			do goto target: target;
+			do goto target: target on: path_to_use;
 		}
 	}
 	
 	aspect arrowAspect { 
-    	draw square(1) color: #red end_arrow: 80 rotate: heading-90 empty: false border: #black; 
+    	draw square(1) color: color end_arrow: 80 rotate: heading-90 empty: false border: #black; 
 	}
 }
 

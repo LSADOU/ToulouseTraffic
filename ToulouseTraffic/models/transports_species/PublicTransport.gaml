@@ -16,31 +16,26 @@ species PublicTransport parent: Transport{
 	string status <- nil;
 	int day_of_departure <- 0;
 	float mean_late_time <- 0.0;
-	
+	rgb color <- #black;
 	TransportLine tp_line <- nil;
+	graph path_to_use <- nil;
 	Hub target <- nil;
-	int target_seq_stop <- 0;
-	int target_arrival_time <- 0;
-	int target_departure_time <- 0;
-	bool last_target <- false;
+	// stop_times[i] = [int arrival_time, int departure_time, Hub hub_to_collect]
+	matrix stop_times <- [];
+	int seq_stop <- 0;
 	
-	reflex departure_timer when: ((target_departure_time <= current_time and day_of_departure = current_day)
+	
+	reflex departure_timer when: ((int(stop_times[1,seq_stop]) <= current_time and day_of_departure = current_day)
 									or day_of_departure < current_day) and status = "waiting"{
 		status <- "moving";
-		target_seq_stop <- target_seq_stop +1;
-		ask tp_line{
-			list target_info <- self.getHubInfo(myself.id,myself.target_seq_stop);
-			myself.target <- Hub(target_info[0]);
-			myself.target_arrival_time <- target_info[1];
-			myself.target_departure_time <- target_info[2];
-			myself.last_target <- target_info[3];
-		}
+		seq_stop <- seq_stop +1;
+		target <- Hub(stop_times[2,seq_stop]);
 	}
 	
 	reflex move when: status = "moving"{}
 	
 	aspect base{
-		draw circle(80) color: #blue border: #black;
+		draw circle(80) color: #black border: #red;
 	}
 }
 

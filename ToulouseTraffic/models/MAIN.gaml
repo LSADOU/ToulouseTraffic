@@ -60,24 +60,17 @@ global skills: [SQLSKILL]{
 	//A list containing all the required parameters to connect to the database
 	map<string, string> MySQL_params<- ['host'::'localhost', 'dbtype'::'MySQL', 'database'::'gtfs_toulouse', 'port'::'3306', 'user'::'root', 'passwd'::''];
 	
-	//A list containing all the service id we want to use to get the data
-	list services_id <- ["4503603929111854","4503603929127582"];
+	//A list containing all the service id we want to use to get the data from
+	list<string> services_id <- ["4503603929111854","4503603929127582"];
 	
-	string getConditionServices(list services_id){
-		string cond <- "AND trips.service_id IN (";
-		loop id over: services_id{
+	string getConditionServices(list<string> servicesId){
+		string cond <- "trips.service_id IN (";
+		loop id over: servicesId{
 			cond <- cond + id +",";
 		}
 		cond <- copy_between(cond, 0,length(cond)-1);
 		cond <- cond + ")";
 		return cond;
-	}
-	
-	
-	// this function sorts a matrix by a specific column
-	// Note that the column type must be able to cast in int
-	matrix sortMatrix(matrix data, int column){
-		return transpose(matrix(rows_list(data) sort_by int(each[column])));
 	}
 	
 	// this function return a string corresponding to the hour
@@ -124,15 +117,29 @@ global skills: [SQLSKILL]{
 		int b <- hex2int(at(hex,4))*16 + hex2int(at(hex,5));
 		return rgb(r,g,b);
 	}
+
+	//the purpose of this map is to store Hub using their id as key
+	//this is useful to get them later and drastically reduce the compute times
+	//when lines will associate hubs to trips
+	map<string,Hub> hubs_map <- [];
 	
 	action getHubData {
-		list result <- select(MySQL_params,"SELECT DISTINCT stop_id,stop_name,stop_lat,stop_lon FROM stops")[2];
+		list<string> createdRoutesID <- TransportLine collect (each.id);
+		list result <- select(MySQL_params,
+			"SELECT DISTINCT stops.stop_id,stop_name,stop_lat,stop_lon,routes.route_type
+			FROM stops
+				INNER JOIN stop_times ON stop_times.stop_id = stops.stop_id
+    			INNER JOIN trips ON stop_times.trip_id = trips.trip_id
+   				INNER JOIN routes ON trips.route_id = routes.route_id
+			WHERE "+getConditionServices(services_id))[2];
 		int count <- 0;
 		loop line over: result{
 			create Hub{
 				id <- string(line[0]);
 				name <- line[1];
+				transport_type <- line[4];
 				location <- myself.string2point(line[3],line[2]);
+				myself.hubs_map[id] <- self;
 			}
 			count <- count +1;
 		}
@@ -140,7 +147,11 @@ global skills: [SQLSKILL]{
 	}	
 	
 	action getTransportLineData {
-		list result <- select(MySQL_params,"SELECT routes.route_id, routes.route_short_name, routes.route_long_name, routes.route_type, routes.route_color FROM routes")[2];
+		list result <- select(MySQL_params,
+			"SELECT DISTINCT routes.route_id, routes.route_short_name, routes.route_long_name, routes.route_type, routes.route_color 
+			FROM routes
+				INNER JOIN trips ON routes.route_id = trips.route_id
+			WHERE "+getConditionServices(services_id))[2];
 		int count <- 0;
 		loop line over: result{
 			create TransportLine{
@@ -151,17 +162,15 @@ global skills: [SQLSKILL]{
 				line_color <- myself.hex2rgb(line[4]);
 				do getStartingTimes;
 				if starting_times.rows=0{
-					write "no starting times for line "+ long_name +" self-destruct" color: #red;
 					do die;
 				}else{
-					write "line "+ long_name +" ok" color: #green;
 					count <- count +1;
 				}
 				do getShapes;
+				do getTripsInfo;
 			}
-			
 		}
-		write ""+ count + " active transport lines imported.";
+		write ""+ count + " active transport lines imported. (considered the service setup)";
 	}
 	
 	init {
@@ -172,7 +181,10 @@ global skills: [SQLSKILL]{
 		do getHubData;
 		
 		// Import data and create transport lines
+		// Note that creating line after hubs is important beacause each line need hub to be instancied
+		// to store the reference
 		do getTransportLineData;
+
 		
 		//Initialization of the building using the shapefile of buildings
 		//create building from: building_shapefile;
@@ -182,12 +194,11 @@ global skills: [SQLSKILL]{
       	road_network <- as_edge_graph(Road);      	
 		
 	}
-		
-	//This boolean stop any departure while there is not a new day
-	bool end_of_day <- false;
 	
 	reflex resetEndofDay when: current_time =0{
-		end_of_day <- false;
+		ask TransportLine{
+			end_of_day <- false;
+		}
 	}
 	
 }

@@ -36,6 +36,11 @@ global skills: [SQLSKILL]{
   	int nb_bus <- 0 update: length(Bus);
   	int nb_tram <- 0 update: length(Tram);
   	
+  	string disp_species_number update:
+  	 "Metro number: "+ nb_metro + "\n"+
+  	 "Bus number: "+ nb_bus + "\n"+
+  	 "Tram number: "+ nb_tram;
+  	
 	//Shapefile of the buildings
 	file building_shapefile <- file("../includes/"+shapefiles_directory+"/"+buildings_shapefile_name);
 	//Shapefile of the roads
@@ -46,7 +51,7 @@ global skills: [SQLSKILL]{
 	graph road_network;
 	
 	//Step value
-	float step <- 10;
+	float step <- 30#sec;
 	int current_time update: (time/#mn) mod 1440;
 	//this int store an absolute date
 	int current_day update: floor(time/#mn /1440);

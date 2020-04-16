@@ -27,8 +27,9 @@ species Tram parent:PublicTransport {
 		}
 	}
 	
-	aspect arrowAspect { 
-    	draw square(1) color: color end_arrow: 80 rotate: heading-90 empty: false border: #black; 
+	aspect base { 
+    	draw square(150) color: color rotate: heading-90 empty: false border: #black; 
+    	draw "T" size: 150 color: #black rotate: heading-90;
 	}
 	
 }

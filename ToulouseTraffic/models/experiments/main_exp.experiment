@@ -10,17 +10,20 @@ experiment traffic model: "../MAIN.gaml" type: gui {
 	float minimum_cycle_duration <- 0.01;
 	output {
 		//layout #split parameters: false navigator: false editors: false consoles: false toolbars: false tray: false tabs: false;	
-		display map type: opengl{
-			graphics "hour of the day"{
-				draw disp_hour at: {0,-120} size: 100 color: #black;
-			}
-			species Building refresh: false;
-			species Road refresh: false;
+		display map background: #black type: opengl {
+			overlay position: { 5, 5 } size: { 180 #px, 100 #px } background: #black transparency: 0.5 border: #black rounded: true
+            {
+                float y <- 30#px;
+                draw disp_hour at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 30, #bold); 
+                draw disp_species_number at: { 40#px, y + 24#px } color: #white font: font("SansSerif", 20, #bold);
+            }
 			species TransportLine aspect: base;
 			species Hub aspect: base;
-			species Bus aspect: arrowAspect;
-			species Tram aspect: arrowAspect;
-			species Metro aspect: arrowAspect;
+			species Bus aspect: base;
+			species Tram aspect: base;
+			species Metro aspect: base;
+			//species Building refresh: false;
+			//species Road refresh: false;
 		}
 		display charts refresh: every (10 #cycles){
 			chart "Mean late time" type: series size: {1, 0.5} position: {0, 0} {

@@ -11,6 +11,6 @@ import "../MAIN.gaml"
 
 species Road {
 	aspect default {
-		draw shape color: #black;
+		draw shape color: #darkgray;
 	} 
 }

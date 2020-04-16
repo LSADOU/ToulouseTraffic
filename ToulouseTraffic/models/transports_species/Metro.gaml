@@ -28,8 +28,8 @@ species Metro parent: PublicTransport {
 		}
 	}
 	
-	aspect arrowAspect { 
-    	draw square(1) color: color end_arrow: 80 rotate: heading-90 empty: false border: #black; 
+	aspect base { 
+    	draw square(200) color: color rotate: heading-90 empty: false border: #black; 
 	}
 }
 

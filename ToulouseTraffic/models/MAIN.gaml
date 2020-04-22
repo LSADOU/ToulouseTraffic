@@ -22,9 +22,6 @@ global skills: [SQLSKILL]{
   	string buildings_shapefile_name <- "buildings.shp";
   	string roads_shapefile_name <- "cleanroads.shp";
   	
-  	string CSV_directory <- "output";
-  	string trips_CSV_file <- "trips.csv";
-  	string stop_times_CSV_file <- "stop_times.csv";
   	
   	//extracted data count
   	int count_departure <- 0;
@@ -58,15 +55,68 @@ global skills: [SQLSKILL]{
 	//a string to display that correspond to the actual hour
 	string disp_hour update: "Day "+current_day+" - "+displayHour(current_time);
 	
-	
-	file trips_file <- csv_file("../includes/" + CSV_directory + "/" + trips_CSV_file);
-	file stop_times_file <- csv_file("../includes/" + CSV_directory + "/" + stop_times_CSV_file);
-	
 	//A list containing all the required parameters to connect to the database
 	map<string, string> MySQL_params<- ['host'::'localhost', 'dbtype'::'MySQL', 'database'::'gtfs_toulouse', 'port'::'3306', 'user'::'root', 'passwd'::''];
 	
 	//A list containing all the service id we want to use to get the data from
-	list<string> services_id <- ["4503603929111854","4503603929127582"];
+	//list<string> services_id <- ["4503603929111854","4503603929127582"];
+	list<string> services_id <- [];
+	
+	//The date to simulate, used to compute wich services are on
+	string simulation_date <- "20200416";
+	
+	string date2day(string date_){
+		int day_code <- int(copy_between(date_,6,8));
+			int year_num <- int(copy_between(date_,2,4));
+			int year_code <- year_num + floor(year_num /4);
+			int month_code;
+			switch copy_between(date_,4,6){
+				match "01"{ if (year_num mod 4)=0 {month_code <- 5;}else{ month_code <- 6;} }
+				match "02"{ if (year_num mod 4)=0 {month_code <- 1;}else{ month_code <- 2;} }
+				match "03"{month_code <- 2;}
+				match "04"{month_code <- 5;}
+				match "05"{month_code <- 0;}
+				match "06"{month_code <- 3;}
+				match "07"{month_code <- 5;}
+				match "08"{month_code <- 1;}
+				match "09"{month_code <- 4;}
+				match "010"{month_code <- 6;}
+				match "11"{month_code <- 2;}
+				match "12"{month_code <- 4;}
+			}
+			int day_num <- int(((day_code mod 7) + (year_code mod 7) + month_code) mod 7);
+			switch day_num{
+				match 1 {return "monday";}
+				match 2 {return "tuesday";}
+				match 3 {return "wednesday";}
+				match 4 {return "thursday";}
+				match 5 {return "friday";}
+				match 6 {return "saturday";}
+				match 7 {return "sunday";}
+			}
+	}
+	
+	//this function is used to get the service ids from the database corresponding to the
+	//given date, the date as to be formated like gtfs date format: yyyymmjj
+	action getServiceIdFromDate{
+		if length(simulation_date) != 8{
+			write "Cannot get the service id due to invalid date format" color: #red;
+		}else{
+			string day_num <- date2day(simulation_date);
+			list result <- select(MySQL_params,
+			"SELECT calendar.service_id
+			FROM calendar
+			WHERE end_date >= \""+ simulation_date +"\"
+				AND start_date <= \""+ simulation_date +"\"
+    			AND "+ date2day(simulation_date) +" = 1")[2];
+    		loop line over: result{
+    			write line[0];
+    			services_id <- services_id + [line[0]];
+    		}
+		}
+	}
+	
+	
 	
 	string getConditionServices(list<string> servicesId){
 		string cond <- "trips.service_id IN (";
@@ -181,6 +231,9 @@ global skills: [SQLSKILL]{
 	init {
 		// Test of the connection to the database
 		do dbTestConnection(MySQL_params);
+		
+		// Import the service ids concerned by the date of the simulation
+		do getServiceIdFromDate;
 		
 		// Import data and create Hubs
 		do getHubData;

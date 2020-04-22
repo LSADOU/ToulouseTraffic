@@ -46,6 +46,28 @@ global {
 		return rgb(r,g,b);
 	}
 	
+	int date2day(string date_){
+		int day_code <- int(copy_between(date_,6,8));
+			int year_num <- int(copy_between(date_,2,4));
+			int year_code <- year_num + floor(year_num /4);
+			int month_code;
+			switch copy_between(date_,4,6){
+				match "01"{ if (year_num mod 4)=0 {month_code <- 5;}else{ month_code <- 6;} }
+				match "02"{ if (year_num mod 4)=0 {month_code <- 1;}else{ month_code <- 2;} }
+				match "03"{month_code <- 2;}
+				match "04"{month_code <- 5;}
+				match "05"{month_code <- 0;}
+				match "06"{month_code <- 3;}
+				match "07"{month_code <- 5;}
+				match "08"{month_code <- 1;}
+				match "09"{month_code <- 4;}
+				match "010"{month_code <- 6;}
+				match "11"{month_code <- 2;}
+				match "12"{month_code <- 4;}
+			}
+			return int(((day_code mod 7) + (year_code mod 7) + month_code) mod 7);
+	}
+	
 	init {
       	road_network <- as_edge_graph(road);
       	
@@ -60,24 +82,8 @@ global {
       	int nb_heure <- int(heure1/60);
       	int nb_min <- heure1 mod 60;
       	
-      	string s <- "";
-      	
-      	if nb_heure < 10 {
-      		s <- s +"0";
-      	}
-      	s <- s + nb_heure + "h";
-      	
-      	if nb_min < 10 {
-      		s <- s +"0";
-      	}
-      	s <- s + nb_min;
-      	
-      	string hex <- "a0670f";
-      	rgb color <- hex2rgb(hex);
-      	write color color: color;
-      	
-      	list l1 <- [1,2,3];
-      	list l2 <- [4,5,6];
+      	string date_test <- "20200416";
+      	write date2day(date_test);
       	
       	write "clean road";
       	//clean data, with the given options
